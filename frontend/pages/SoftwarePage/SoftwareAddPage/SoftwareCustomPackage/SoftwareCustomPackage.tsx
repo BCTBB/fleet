@@ -133,7 +133,8 @@ const SoftwareCustomPackage = ({
         (e.response?.status === 504 || e.response?.status === 408);
       const reason = getErrorReason(e);
 
-      const isAutomaticInstallPolicyFailure = true; // TODO
+      const isAutomaticInstallPolicyFailure =
+        isAxiosError(e) && e.response?.status === 424;
 
       if (isTimeout) {
         renderFlash(

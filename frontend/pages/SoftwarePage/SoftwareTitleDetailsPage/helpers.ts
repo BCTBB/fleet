@@ -35,9 +35,6 @@ export const getPackageCardInfo = (softwareTitle: ISoftwareTitleDetails) => {
     status: isSoftwarePackage(packageData)
       ? aggregateInstallStatusCounts(packageData.status)
       : packageData.status,
-    isAutomaticInstall: isSoftwarePackage(packageData)
-      ? packageData.automatic_install
-      : undefined,
     isSelfService: packageData.self_service,
   };
 };
