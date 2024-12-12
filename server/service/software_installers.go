@@ -30,6 +30,7 @@ type uploadSoftwareInstallerRequest struct {
 	PostInstallScript string
 	SelfService       bool
 	UninstallScript   string
+	AutomaticInstall  bool
 }
 
 type updateSoftwareInstallerRequest struct {
@@ -261,6 +262,15 @@ func (uploadSoftwareInstallerRequest) DecodeRequest(ctx context.Context, r *http
 		decoded.SelfService = parsed
 	}
 
+	val, ok = r.MultipartForm.Value["automatic_install"]
+	if ok && len(val) > 0 && val[0] != "" {
+		parsed, err := strconv.ParseBool(val[0])
+		if err != nil {
+			return nil, &fleet.BadRequestError{Message: fmt.Sprintf("failed to decode automatic_install bool in multipart form: %s", err.Error())}
+		}
+		decoded.AutomaticInstall = parsed
+	}
+
 	return &decoded, nil
 }
 
@@ -289,6 +299,7 @@ func uploadSoftwareInstallerEndpoint(ctx context.Context, request interface{}, s
 		Filename:          req.File.Filename,
 		SelfService:       req.SelfService,
 		UninstallScript:   req.UninstallScript,
+		AutomaticInstall:  req.AutomaticInstall,
 	}
 
 	if err := svc.UploadSoftwareInstaller(ctx, payload); err != nil {

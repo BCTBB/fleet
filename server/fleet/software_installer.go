@@ -332,6 +332,7 @@ type UploadSoftwareInstallerPayload struct {
 	UninstallScript    string
 	Extension          string
 	InstallDuringSetup *bool // keep saved value if nil, otherwise set as indicated
+	AutomaticInstall   bool
 }
 
 type UpdateSoftwareInstallerPayload struct {
@@ -430,7 +431,7 @@ type SoftwarePackageOrApp struct {
 	AppStoreID string `json:"app_store_id,omitempty"`
 	// Name is only present for software installer packages.
 	Name string `json:"name,omitempty"`
-	// AutomaticInstallPolicies is only present for Fleet maintained apps
+	// AutomaticInstallPolicies is present for Fleet maintained apps and custom packages
 	// installed automatically with a policy.
 	AutomaticInstallPolicies []AutomaticInstallPolicy `json:"automatic_install_policies"`
 

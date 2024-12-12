@@ -58,9 +58,6 @@ func (svc *Service) UploadSoftwareInstaller(ctx context.Context, payload *fleet.
 		return ctxerr.Wrap(ctx, err, "storing software installer")
 	}
 
-	// TODO: basic validation of install and post-install script (e.g., supported interpreters)?
-	// TODO: any validation of pre-install query?
-
 	// Update $PACKAGE_ID in uninstall script
 	preProcessUninstallScript(payload)
 
@@ -70,7 +67,12 @@ func (svc *Service) UploadSoftwareInstaller(ctx context.Context, payload *fleet.
 	}
 	level.Debug(svc.logger).Log("msg", "software installer uploaded", "installer_id", installerID)
 
-	// TODO: QA what breaks when you have a software title with no versions?
+	var automaticPolicyCreationErr error
+	if payload.AutomaticInstall {
+		if err := svc.createAutomaticPolicy(ctx, payload, titleID); err != nil {
+			automaticPolicyCreationErr = err
+		}
+	}
 
 	var teamName *string
 	if payload.TeamID != nil && *payload.TeamID != 0 {
@@ -81,7 +83,6 @@ func (svc *Service) UploadSoftwareInstaller(ctx context.Context, payload *fleet.
 		teamName = &t.Name
 	}
 
-	// Create activity
 	if err := svc.NewActivity(ctx, vc.User, fleet.ActivityTypeAddedSoftware{
 		SoftwareTitle:   payload.Title,
 		SoftwarePackage: payload.Filename,
@@ -93,7 +94,88 @@ func (svc *Service) UploadSoftwareInstaller(ctx context.Context, payload *fleet.
 		return ctxerr.Wrap(ctx, err, "creating activity for added software")
 	}
 
+	if automaticPolicyCreationErr != nil {
+		return fleet.NewUserMessageError(automaticPolicyCreationErr, http.StatusFailedDependency)
+	}
+
 	return nil
+}
+
+func (svc *Service) createAutomaticPolicy(ctx context.Context, payload *fleet.UploadSoftwareInstallerPayload, softwareTitleID uint) error {
+	// TODO(lucas): Move to a package.
+	policyQuery, policyPlatform, err := generatePolicyQuery(payload)
+	if err != nil {
+		return ctxerr.Wrap(ctx, err, "generate automatic policy query")
+	}
+	// TODO(lucas): What happens if the policy name already exists (e.g. collision with FMA automated policy).
+	// TODO(lucas): Feedback from product team, platform name at the end?
+	policyName := fmt.Sprintf("[Install software] %s (%s)", payload.Title, payload.Extension)
+	teamID := fleet.PolicyNoTeamID
+	if payload.TeamID != nil {
+		teamID = *payload.TeamID
+	}
+	if _, err := svc.NewTeamPolicy(ctx, teamID, fleet.NewTeamPolicyPayload{
+		Name:     policyName,
+		Query:    policyQuery,
+		Platform: policyPlatform,
+		// TODO(lucas): Feedback from product on description for policy.
+		Description:     fmt.Sprintf("Checks whether package '%s' is installed on the host", payload.Title),
+		SoftwareTitleID: &softwareTitleID,
+	}); err != nil {
+		return ctxerr.Wrap(ctx, err, "create automatic policy query")
+	}
+	return nil
+}
+
+func generatePolicyQuery(payload *fleet.UploadSoftwareInstallerPayload) (query string, platform string, err error) {
+	switch payload.Extension {
+	case "pkg":
+		return generatePKGPolicyQuery(payload), "darwin", nil
+	case "msi", "exe":
+		return generateWindowsPolicyQuery(payload), "windows", nil
+	case "deb":
+		return generateDEBPolicyQuery(payload), "linux", nil
+	case "rpm":
+		return generateRPMPolicyQuery(payload), "linux", nil
+	default:
+		return "", "", fmt.Errorf("unsupported extension: %s", payload.Extension)
+	}
+}
+
+func generatePKGPolicyQuery(payload *fleet.UploadSoftwareInstallerPayload) string {
+	// TODO(lucas): Can a pkg have apps without bundle identifier? What do we do.
+	if payload.BundleIdentifier != "" {
+		return fmt.Sprintf("SELECT 1 FROM apps WHERE bundle_identifier = '%s';", payload.BundleIdentifier)
+	}
+	return fmt.Sprintf("SELECT 1 FROM apps WHERE name = '%s';", payload.Title)
+}
+
+func generateWindowsPolicyQuery(payload *fleet.UploadSoftwareInstallerPayload) string {
+	return fmt.Sprintf("SELECT 1 FROM programs WHERE name = '%s';", payload.Title)
+}
+
+func generateDEBPolicyQuery(payload *fleet.UploadSoftwareInstallerPayload) string {
+	return fmt.Sprintf(
+		`SELECT 1 WHERE EXISTS (
+			-- This will mark the policies as successful on RHEL hosts.
+			-- This is only required if RHEL-based and Debian based system share a team.
+			SELECT 1 FROM os_version WHERE platform = 'rhel'
+		) OR EXISTS (
+   			SELECT 1 FROM deb_packages WHERE name = '%s'
+		);`, payload.Title,
+	)
+}
+
+func generateRPMPolicyQuery(payload *fleet.UploadSoftwareInstallerPayload) string {
+	return fmt.Sprintf(
+		`SELECT 1 WHERE EXISTS (
+			-- This will mark the policies as successfull on non-RHEL hosts.
+   			-- This is only required if RHEL-based and Debian based system share a team.
+			SELECT 1 FROM os_version WHERE platform != 'rhel'
+		) OR EXISTS (
+   			SELECT 1 FROM rpm_packages WHERE name = '%s'
+		);`, payload.Title,
+	)
 }
 
 var packageIDRegex = regexp.MustCompile(`((("\$PACKAGE_ID")|(\$PACKAGE_ID))(?P<suffix>\W|$))|(("\${PACKAGE_ID}")|(\${PACKAGE_ID}))`)
