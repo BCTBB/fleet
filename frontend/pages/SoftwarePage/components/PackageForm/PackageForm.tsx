@@ -216,8 +216,8 @@ const PackageForm = ({
                 >
                   this software
                 </TooltipWrapper>
-                . Policy that triggers install install can be customized after
-                software is added.
+                . Policy that triggers install can be customized after software
+                is added.
               </>
             }
           />
