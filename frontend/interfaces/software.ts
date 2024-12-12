@@ -70,6 +70,7 @@ export interface ISoftwarePackage {
   install_script: string;
   pre_install_query?: string;
   post_install_script?: string;
+  automatic_install: boolean;
   self_service: boolean;
   icon_url: string | null;
   status: {
@@ -276,6 +277,7 @@ export interface ISoftwareInstallResult {
   post_install_script_output: string;
   created_at: string;
   updated_at: string | null;
+  automatic_install: boolean;
   self_service: boolean;
 }
 
@@ -306,6 +308,7 @@ export interface ISoftwareInstallVersion {
 
 export interface IHostSoftwarePackage {
   name: string;
+  automatic_install: boolean;
   self_service: boolean;
   icon_url: string;
   version: string;

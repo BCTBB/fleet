@@ -144,6 +144,7 @@ const SoftwareTitleDetailsPage = ({
           version={packageCardData.version}
           uploadedAt={packageCardData.uploadedAt}
           status={packageCardData.status}
+          isAutomaticInstall={packageCardData.isAutomaticInstall}
           isSelfService={packageCardData.isSelfService}
           softwareId={softwareId}
           teamId={currentTeamId ?? APP_CONTEXT_NO_TEAM_ID}

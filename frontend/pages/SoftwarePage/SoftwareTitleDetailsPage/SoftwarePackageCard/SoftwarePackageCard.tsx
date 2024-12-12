@@ -233,6 +233,7 @@ interface ISoftwarePackageCardProps {
     pending: number;
     failed: number;
   };
+  isAutomaticInstall?: boolean; // Not on App Store apps
   isSelfService: boolean;
   softwareId: number;
   teamId: number;
@@ -251,6 +252,7 @@ const SoftwarePackageCard = ({
   version,
   uploadedAt,
   status,
+  isAutomaticInstall,
   isSelfService,
   softwarePackage,
   softwareId,
@@ -362,6 +364,9 @@ const SoftwarePackageCard = ({
                 />
               </TooltipWrapper>
             )}
+          {isAutomaticInstall && (
+            <Tag icon="refresh" text="Automatic install" />
+          )}
           {isSelfService && <Tag icon="user" text="Self-service" />}
           {showActions && (
             <SoftwareActionsDropdown
