@@ -32,6 +32,7 @@ export interface IPackageFormData {
 export interface IFormValidation {
   isValid: boolean;
   software: { isValid: boolean };
+  automaticInstall?: { isValid: boolean };
   preInstallQuery?: { isValid: boolean; message?: string };
   postInstallScript?: { isValid: boolean; message?: string };
   uninstallScript?: { isValid: boolean; message?: string };
